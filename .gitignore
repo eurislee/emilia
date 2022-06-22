@@ -1,0 +1,15 @@
+.clangd
+.ycm_extra_conf.py
+compile_commands.json
+tests
+build/*
+meris
+TAGS
+TAGS*
+src/TAGS
+src/TAGS*
+meris.desktop
+.cache
+.cache/*
+src/.cache
+src/.cache/*

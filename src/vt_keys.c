@@ -4,7 +4,7 @@
 
 #include "../include/key.h"
 #include "../include/vt.h"
-#include "vt_private.h"
+#include "../include/vt_private.h"
 
 /**
  *  Substitute keypad keys with normal ones */

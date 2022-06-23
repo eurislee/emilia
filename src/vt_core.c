@@ -2,13 +2,13 @@
 
 #define _GNU_SOURCE
 
-#include "settings.h"
-#include "util.h"
+#include "../include/settings.h"
+#include "../include/util.h"
 
-#include "vt.h"
-#include "vt_private.h"
-#include "vt_shell.h"
-#include "vt_sixel.h"
+#include "../include/vt.h"
+#include "../include/vt_private.h"
+#include "../include/vt_shell.h"
+#include "../include/vt_sixel.h"
 
 #include <fcntl.h>
 #include <limits.h>
@@ -21,9 +21,9 @@
 #include <termios.h>
 #include <uchar.h>
 
-#include "vt_img_proto.h"
+#include "../include/vt_img_proto.h"
 
-#include "key.h"
+#include "../include/key.h"
 
 static void Vt_shift_global_line_index_refs(Vt* self, size_t point, int64_t change, bool refs_only);
 static inline size_t Vt_top_line(const Vt* const self);

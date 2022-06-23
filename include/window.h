@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "../include/settings.h"
-#include "../include/timing.h"
-#include "../include/util.h"
+#include "settings.h"
+#include "timing.h"
+#include "util.h"
 #include <stdalign.h>
 
 typedef enum

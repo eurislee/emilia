@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 
-#include "monitor.h"
+#include "../include/monitor.h"
 
 #include <fcntl.h>
 #include <signal.h>

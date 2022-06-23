@@ -23,9 +23,9 @@
 #include "../include/wc_width.h"
 
 #ifdef GFX_GLES
-#include "shaders_gles20.h"
+#include "../include/shaders_gles20.h"
 #else
-#include "shaders_gl21.h"
+#include "../include/shaders_gl21.h"
 #endif
 
 DEF_PAIR(GLuint);
@@ -77,7 +77,7 @@ DEF_PAIR(GLuint);
 #define QUAD_V_SZ      4 /* number of verts per quad (GL_QUADS) */
 #endif
 
-#include "gl_ext.h"
+#include "../include/gl_ext.h"
 
 static PFNGLBUFFERSUBDATAARBPROC        glBufferSubData;
 static PFNGLUNIFORM4FPROC               glUniform4f;

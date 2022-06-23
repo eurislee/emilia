@@ -1,0 +1,5 @@
+{
+  "files.associations": {
+    "shaders_gl21.h": "c"
+  }
+}

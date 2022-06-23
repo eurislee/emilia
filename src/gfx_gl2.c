@@ -187,7 +187,7 @@ static void maybe_load_gl_exts(void* loader,
     loaded = true;
 }
 
-#include "gl.h"
+#include "../include/gl.h"
 
 enum GlyphColor
 {

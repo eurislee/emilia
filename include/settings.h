@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #pragma once
 
 #include "colors.h"
@@ -7,7 +5,7 @@
 #include "vector.h"
 
 #ifndef VERSION
-#define VERSION "0.0.1"
+#define VERSION "0.1.0"
 #endif
 
 #ifndef EXECUTABLE_FILE_NAME
@@ -216,7 +214,6 @@ typedef struct
     ColorRGBA bg, bghl, cursor_bg;
     ColorRGB  fg, fghl, cursor_fg;
 
-    bool font_box_drawing_chars;
     bool background_blur;
     bool cursor_color_static_bg, cursor_color_static_fg;
 

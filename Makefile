@@ -1,4 +1,5 @@
-NAME = meris
+CC        ?= cc
+NAME      ?= meris
 PREFIX    ?= /usr/local
 BINPREFIX ?= $(PREFIX)/bin
 
@@ -8,13 +9,12 @@ SRC_DIR = src
 BUILD_DIR = build
 TARGET_DIR = .
 
+
 ifeq ($(shell uname -s),FreeBSD)
-	CC?= gcc
 	INCLUDES = -I/usr/local/include/freetype2/
 	INCLUDES += -I/usr/local/include
 	LDLIBS = -lGL -lfreetype -lfontconfig -lutil -L/usr/local/lib -lm
 else
-	CC?= cc
 	INCLUDES = -I/usr/include/freetype2/
 	LDLIBS = -lGL -lfreetype -lfontconfig -lutil -L/usr/lib -lm
 endif
@@ -32,11 +32,11 @@ else ifeq ($(mode),debugoptimized)
 	LDFLAGS = -O2 -g
 	LDLIBS += -lGLU
 else
-	CFLAGS = -std=c18 -MD -O2 -flto=auto -mtune=generic -ffast-math -fshort-enums
-	LDFLAGS = -O2 -flto=auto
+	CFLAGS = -std=c18 -MD -O2 -flto -mtune=generic -ffast-math -fshort-enums
+	LDFLAGS = -O2 -flto
 endif
 
-ifeq ($(libutf8proc),off)
+ifeq ($(shell ldconfig -p | grep libutf8proc.so > /dev/null || echo fail),fail)
 $(info libutf8proc not found. Support for language-specific combining characters and unicode normalization will be disabled.)
 	CFLAGS += -DNOUTF8PROC
 else
@@ -63,13 +63,6 @@ else
 	LDLIBS += $(XLDLIBS) $(WLLDLIBS)
 endif
 
-ifeq ($(renderer), gles20)
-	CFLAGS += -DGFX_GLES
-	LDLIBS += -lGLESv2
-else
-	LDLIBS += -lGL
-endif
-
 
 $(NAME): $(OBJ)
 	$(CC) $(OBJ) $(LDLIBS) -o $(TARGET_DIR)/$(NAME) $(LDFLAGS)
@@ -88,16 +81,13 @@ debug:
 	gdb --args ./$(TARGET_DIR)/$(NAME) $(ARGS)
 
 clean:
-	$(RM) -f $(OBJ)
-
-cleanall:
-	$(RM) -f $(NAME) $(OBJ) $(OBJ:.o=.d)
+	-@rm -rf $(NAME) $(BUILD_DIR)
 
 install:
 	@mkdir -p "$(DESTDIR)$(BINPREFIX)"
 	@cp -pf $(NAME) "$(DESTDIR)$(BINPREFIX)"
 
 uninstall:
-	$(RM) $(DESTDIR)$(BINPREFIX)/$(NAME)
+	$(RM) $(INSTALL_DIR)/$(NAME)
 
 -include $(OBJ:.o=.d)

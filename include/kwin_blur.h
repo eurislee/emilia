@@ -11,20 +11,6 @@
 extern "C" {
 #endif
 
-/**
- * @page page_blur The blur protocol
- * @section page_ifaces_blur Interfaces
- * - @subpage page_iface_org_kde_kwin_blur_manager - 
- * - @subpage page_iface_org_kde_kwin_blur - 
- * @section page_copyright_blur Copyright
- * <pre>
- *
- * SPDX-FileCopyrightText: 2015 Martin Gräßlin
- * SPDX-FileCopyrightText: 2015 Marco Martin
- *
- * SPDX-License-Identifier: LGPL-2.1-or-later
- * </pre>
- */
 struct org_kde_kwin_blur;
 struct org_kde_kwin_blur_manager;
 struct wl_region;

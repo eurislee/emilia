@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #version 120
 
 attribute vec4 coord;

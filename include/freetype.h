@@ -14,7 +14,7 @@
 #include FT_BITMAP_H
 #include FT_FONT_FORMATS_H
 
-#include "ft_errors.h"
+#include "fterrors.h"
 #include "settings.h"
 #include "vector.h"
 

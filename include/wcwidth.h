@@ -1,5 +1,5 @@
-#ifndef WC_WIDTH_H_INCLUDED
-#define WC_WIDTH_H_INCLUDED
+#ifndef WCWIDTH_H_INCLUDED
+#define WCWIDTH_H_INCLUDED
 
 #include <stdlib.h>
 

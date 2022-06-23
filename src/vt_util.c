@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 /* Random stuff used for interacting with the Vt module, but not directly related to terminal
  * emulation  */
 

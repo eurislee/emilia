@@ -1,5 +1,3 @@
-
-
 #ifndef ALLIMGFMTS
 
 #define STBI_NO_JPEG

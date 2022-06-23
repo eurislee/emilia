@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #ifndef NOX // if x11 support enabled at compile time
 
 #define _GNU_SOURCE
@@ -113,11 +111,7 @@ static WindowStatic* global;
 #define windowX11(base) ((WindowX11*)&base->extend_data)
 
 static void WindowX11_set_decoration_theme_hint(WindowBase* self, enum decoration_theme_e theme);
-static WindowBase* WindowX11_new(uint32_t  w,
-                                 uint32_t  h,
-                                 uint32_t  cellx,
-                                 uint32_t  celly,
-                                 gfx_api_t gfx_api);
+static WindowBase* WindowX11_new(uint32_t w, uint32_t h, uint32_t cellx, uint32_t celly);
 static void        WindowX11_set_fullscreen(WindowBase* self, bool fullscreen);
 static void        WindowX11_set_maximized(WindowBase* self, bool maximized);
 static void        WindowX11_resize(WindowBase* self, uint32_t w, uint32_t h);
@@ -439,11 +433,7 @@ static int x11_io_error_handler(Display* dpy)
     return 0; /* return value is ignored */
 }
 
-static WindowBase* WindowX11_new(uint32_t  w,
-                                 uint32_t  h,
-                                 uint32_t  cellx,
-                                 uint32_t  celly,
-                                 gfx_api_t gfx_api)
+static WindowBase* WindowX11_new(uint32_t w, uint32_t h, uint32_t cellx, uint32_t celly)
 {
     bool init_globals = false;
 
@@ -651,32 +641,11 @@ static WindowBase* WindowX11_new(uint32_t  w,
 
     LOG("X::GLX_EXT_buffer_age supported: " BOOL_FMT "\n", BOOL_AP(!!GLX_EXT_buffer_age_supported));
 
-    const int VER_PLACEHOLDER = 0;
-
-    int context_attrs[] = { GLX_CONTEXT_MAJOR_VERSION_ARB,
-                            VER_PLACEHOLDER,
-                            GLX_CONTEXT_MINOR_VERSION_ARB,
-                            VER_PLACEHOLDER,
-                            None,
-                            None,
-                            None };
-
-    context_attrs[1] = gfx_api.version_major;
-    context_attrs[3] = gfx_api.version_minor;
-
-    switch (gfx_api.type) {
-        case GFX_API_GL:
-            /* standard GL is the default */
-            break;
-
-        case GFX_API_GLES:
-            context_attrs[4] = GLX_CONTEXT_PROFILE_MASK_ARB;
-            context_attrs[5] = GLX_CONTEXT_ES_PROFILE_BIT_EXT;
-            break;
-
-        case GFX_API_VK:
-            ERR("vulkan context not implemented for X11\n");
-    }
+    static const int context_attrs[] = { GLX_CONTEXT_MAJOR_VERSION_ARB,
+                                         2,
+                                         GLX_CONTEXT_MINOR_VERSION_ARB,
+                                         1,
+                                         None };
 
     if (strstr(exts, "_swap_control")) {
         glXSwapIntervalEXT = (APIENTRY PFNGLXSWAPINTERVALEXTPROC)glXGetProcAddressARB(
@@ -906,10 +875,9 @@ static WindowBase* WindowX11_new(uint32_t  w,
     return win;
 }
 
-WindowBase* Window_new_x11(Pair_uint32_t res, Pair_uint32_t cell_dims, gfx_api_t gfx_api)
+WindowBase* Window_new_x11(Pair_uint32_t res, Pair_uint32_t cell_dims)
 {
-    WindowBase* win =
-      WindowX11_new(res.first, res.second, cell_dims.first, cell_dims.second, gfx_api);
+    WindowBase* win = WindowX11_new(res.first, res.second, cell_dims.first, cell_dims.second);
 
     if (!win) {
         return NULL;
@@ -955,13 +923,9 @@ static void WindowX11_update_monitor_placement(WindowBase* self)
         self->lcd_filter   = globalX11->root_win_geometry;
         self->output_index = index;
         free(self->output_name);
-        self->output_name = NULL;
-        if (name) {
-            self->output_name = strdup(name);
-        }
-        self->dpi = dpi;
+        self->output_name = strdup(name);
+        self->dpi         = dpi;
         Window_emit_output_change_event(self);
-
         XFree(name);
     }
 }
@@ -1750,7 +1714,7 @@ static void WindowX11_event_selection_notify(WindowBase* self, XSelectionEvent* 
         LOG("X::event::SelectionNotify{ start incremental transfer in }\n");
         XDeleteProperty(globalX11->display, target, clip);
         globalX11->incr_transfer_in.listen_property = clip;
-        globalX11->incr_transfer_in.listen_timeout  = TimePoint_ms_from_now(INCR_TIMEOUT_MS);
+        globalX11->incr_transfer_in.listen_timeout  = TimePoint_s_from_now(INCR_TIMEOUT_MS);
         globalX11->incr_transfer_in.source          = target;
         Vector_clear_char(&globalX11->incr_transfer_in.data);
     } else {

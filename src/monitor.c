@@ -2,7 +2,6 @@
 
 #include "../include/monitor.h"
 
-#include <fcntl.h>
 #include <signal.h>
 #include <sys/poll.h>
 #include <sys/wait.h>
@@ -112,7 +111,6 @@ void Monitor_fork_new_pty(Monitor* self, uint32_t cols, uint32_t rows)
         ERR("Failed to fork process %s", strerror(errno));
     }
     close(self->parent_fd);
-    fcntl(self->child_fd, F_SETFL, fcntl(self->child_fd, F_GETFL) | O_NONBLOCK);
     Vector_push_MonitorInfo(&instances,
                             (MonitorInfo){ .child_pid = self->child_pid, .instance = self });
     self->child_is_dead = false;
@@ -126,7 +124,6 @@ bool Monitor_wait(Monitor* self, int timeout)
     self->pollfds[EXTRA_FD_IDX].fd     = self->extra_fd;
     self->pollfds[EXTRA_FD_IDX].events = POLLIN;
 
-    errno = 0;
     if (poll(self->pollfds, 2, timeout) < 0) {
         if (errno != EINTR && errno != EAGAIN) {
             ERR("poll failed %s", strerror(errno));
@@ -149,7 +146,7 @@ ssize_t Monitor_read(Monitor* self)
         self->pollfds[CHILD_FD_IDX].events = POLLIN;
         if (poll(self->pollfds, 1, 0) < 0) {
             if (errno != EINTR && errno != EAGAIN) {
-                ERR("poll failed %s\n", strerror(errno));
+                ERR("poll failed %s", strerror(errno));
             }
         }
         self->read_info_up_to_date = true;
@@ -171,26 +168,11 @@ ssize_t Monitor_read(Monitor* self)
 
 ssize_t Monitor_write(Monitor* self, char* buffer, size_t bytes)
 {
-    for (uint_fast8_t i = 0; i < 2; ++i) {
-        ssize_t ret = write(self->child_fd, buffer, bytes);
-
-        if (ret == -1) {
-            if (likely(errno == EAGAIN || errno == EWOULDBLOCK)) {
-                /* We can't write because the client program has not read enuogh data to free up the
-                 * os provided buffer. A blocking write here could potentially (if the client also
-                 * doesn't check for this) deadlock the main event loop. Just give up and try next
-                 * time. */
-                return MONITOR_WRITE_WOULD_BLOCK;
-            } else if (errno != EINTR) {
-                ERR("wirte to pty failed %s\n", strerror(errno));
-            }
-        } else {
-            return ret;
-        }
+    ssize_t ret = write(self->child_fd, buffer, bytes);
+    if (unlikely(ret == -1)) {
+        WRN("Writing to pty failed %s\n", strerror(errno));
     }
-
-    WRN("write to pty interrupted\n");
-    return MONITOR_WRITE_WOULD_BLOCK;
+    return ret;
 }
 
 void Monitor_kill(Monitor* self)

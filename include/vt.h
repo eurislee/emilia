@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #pragma once
 
 #ifdef __linux
@@ -10,14 +8,6 @@
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
 #include <libutil.h>
 #include <termios.h>
-#endif
-
-#ifndef NOUTF8PROC
-#include <utf8proc.h>
-#define C_WIDTH(c) ((uint8_t)utf8proc_charwidth((char32_t)(c)))
-#else
-#include "wc_width.h"
-#define C_WIDTH(c) ((uint8_t)wcwidth((c)))
 #endif
 
 #include <errno.h>
@@ -54,7 +44,6 @@ typedef struct
 typedef enum
 {
     VT_IMAGE_PROTO_ACTION_TRANSMIT,
-
     /* The terminal emulator will try to load the image and respond with either
        OK or an error, but it will not replace an existing image with the
        same id, nor will it store the image. */
@@ -152,49 +141,10 @@ typedef struct
     } style : 3;
 } Rune;
 
-/* Get total grapheme cluster width (in cells) */
-static inline uint8_t Rune_width(Rune r)
-{
-    uint8_t base  = C_WIDTH(r.code);
-    uint8_t extra = 0;
-
-    for (int i = 0; i < VT_RUNE_MAX_COMBINE; ++i) {
-        extra = MAX(extra, r.combine[i]);
-    }
-
-    return base + extra;
-}
-
-/* Get total maximum possible visual grapheme cluster width (in cells).
- (Ambiguous width characters (unicode private use block can be used for custom symbols like
- icons or logos and differs system to system) may actually use double width glyphs, but should
- only advance the cursor by a single cell) */
-static inline uint8_t Rune_width_spill(Rune r)
-{
-    uint8_t base  = C_WIDTH(r.code);
-    uint8_t extra = 0;
-
-    for (int i = 0; i < VT_RUNE_MAX_COMBINE; ++i) {
-        extra = MAX(extra, r.combine[i]);
-    }
-
-    return unicode_is_ambiguous_width(r.code) ? (MAX(2, base) + extra) : (base + extra);
-}
-
-static inline bool Rune_is_blank(Rune r)
-{
-    for (int i = 0; i < VT_RUNE_MAX_COMBINE; ++i) {
-        if (r.combine[i])
-            return false;
-    }
-
-    return r.code == ' ';
-}
-
 #define VT_RUNE_PALETTE_INDEX_TERM_DEFAULT (-1)
 
 /**
- * Represents a single terminal cell */
+ * Represents a single character */
 typedef struct
 {
     Rune rune;
@@ -251,12 +201,9 @@ typedef enum
     VT_COMMAND_STATE_COMPLETED,
 } vt_command_state_t;
 
-/* Shell integration command */
 typedef struct
 {
-    char* command;
-
-    /* command_end_row = output_rows.first -1 */
+    char*              command;
     size_t             command_start_row;
     Pair_size_t        output_rows;
     TimeSpan           execution_time;
@@ -361,7 +308,7 @@ DEF_RC_PTR_DA(VtSixelSurface, VtSixelSurface_destroy, void);
 DEF_VECTOR(RcPtr_VtSixelSurface, RcPtr_destroy_VtSixelSurface);
 
 /**
- * represents a clickable range of text linked to a URI */
+ * represents a clickable range of text linked to a URL */
 typedef struct
 {
     char* uri_string;
@@ -463,10 +410,10 @@ typedef struct
     /* This is line was used to invoke a command, contains the prompt/command body or both */
     bool mark_command_invoke : 1;
 
-    /* This line starts a command output block */
+    /* This is line starts a command output block */
     bool mark_command_output_start : 1;
 
-    /* This line ends a command output block */
+    /* This is line ends a command output block */
     bool mark_command_output_end : 1;
 } VtLine;
 
@@ -613,6 +560,8 @@ typedef struct
         void (*destroy_image_proxy)(void*, VtImageSurfaceProxy*);
         void (*destroy_image_view_proxy)(void*, VtImageSurfaceViewProxy*);
         void (*destroy_sixel_proxy)(void*, VtSixelSurfaceProxy*);
+
+        void (*immediate_pty_write)(void*, char*, size_t);
     } callbacks;
 
     uint32_t last_click_x;
@@ -748,12 +697,6 @@ typedef struct
     char*         work_dir;
     Vector_DynStr title_stack;
 
-    struct
-    {
-        bool action_performed;
-        bool repaint;
-    } defered_events;
-
     vt_gui_pointer_mode_t gui_pointer_mode;
 
     struct terminal_colors_t
@@ -813,9 +756,7 @@ typedef struct
 
     char* active_hyperlink;
 
-    VtRune last_inserted;
-    bool   has_last_inserted_rune;
-
+    VtRune*  last_interted;
     char32_t last_codepoint;
 #ifndef NOUTF8PROC
     int32_t utf8proc_state;
@@ -1132,33 +1073,12 @@ const char* Vt_uri_range_at(Vt*            self,
                             Pair_size_t*   out_rows,
                             Pair_uint16_t* out_columns);
 
-#ifdef DEBUG
-static inline VtLine* _ERRVt_cursor_line(int ln, const Vt* self)
-{
-    ERR("line count overflow on line %d. line cnt %zu cursor pos %zu\n",
-        ln,
-        self->lines.size,
-        self->cursor.row);
-    return NULL;
-}
-
-static inline VtLine* _Vt_cursor_line(const Vt* self)
-{
-    return &self->lines.buf[self->cursor.row];
-}
-
-#define Vt_cursor_line(_s)                                                                         \
-    (((_s)->lines.size < (_s)->cursor.row) ? _ERRVt_cursor_line(__LINE__, (_s))                    \
-                                           : _Vt_cursor_line((_s)))
-
-#else
 /**
  * Get line under terminal cursor */
 static inline VtLine* Vt_cursor_line(const Vt* self)
 {
     return &self->lines.buf[self->cursor.row];
 }
-#endif
 
 /**
  * Get cell under terminal cursor */
@@ -1180,19 +1100,8 @@ void Vt_init(Vt* self, uint32_t cols, uint32_t rows);
 void Vt_interpret(Vt* self, char* buf, size_t bytes);
 
 /**
- * Get pty response data up to given size of @param len. */
-void Vt_peek_output(Vt* self, size_t len, char** out_buf, size_t* out_size);
-
-/**
- * Get size of pending pty response data waiting to be written */
-static inline size_t Vt_get_output_size(const Vt* self)
-{
-    return self->output.size;
-}
-
-/**
- * Remove @param len bytes of output data from internal buffer. */
-void Vt_consumed_output(Vt* self, size_t len);
+ * Ger response message */
+Vector_char* Vt_get_output(Vt* self, size_t len, char** out_buf, size_t* out_size);
 
 /**
  * Get lines that should be visible */

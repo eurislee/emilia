@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #define _GNU_SOURCE
 
 #include <stdlib.h>

@@ -1,4 +1,3 @@
-/* See LICENSE for license information. */
 #version 120
 
 attribute vec2 pos;

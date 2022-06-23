@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #pragma once
 
 #define _GNU_SOURCE
@@ -58,7 +56,7 @@ static inline int64_t TimePoint_get_nsecs(TimePoint self)
 
 static inline int64_t TimePoint_get_ms(TimePoint self)
 {
-    return (((int64_t)self.tv_nsec) + ((int64_t)self.tv_sec) * SEC_IN_NSECS) / MS_IN_NSECS;
+    return (self.tv_nsec + self.tv_sec * SEC_IN_NSECS) / MS_IN_NSECS;
 }
 
 static inline void TimePoint_subtract(TimePoint* self, TimePoint other)
@@ -470,12 +468,10 @@ typedef struct
 
 #define TIME_POINT_PTR(tp) (&(time_point_ptr_t){ .payload = tp })
 
-#define TIMER_MANAGER_NO_ACTION_PENDING INT64_MIN
-
-__attribute__((sentinel)) static int64_t
+__attribute__((sentinel)) static int32_t
 TimerManager_get_next_action_ms(TimerManager* self, time_point_ptr_t* external_frame, ...)
 {
-    int64_t   ret              = TIMER_MANAGER_NO_ACTION_PENDING;
+    int32_t   ret              = -1;
     TimePoint next_frame_point = { 0, 0 };
     bool      has_next_frame   = false;
 
@@ -531,10 +527,9 @@ TimerManager_get_next_action_ms(TimerManager* self, time_point_ptr_t* external_f
     va_end(ap);
 
     if (!has_next_frame) {
-        return TIMER_MANAGER_NO_ACTION_PENDING;
+        return -1;
     } else {
-        int64_t nfp = TimePoint_is_ms_ahead(next_frame_point);
-        return MAX(0, nfp);
+        return TimePoint_is_ms_ahead(next_frame_point);
     }
 }
 

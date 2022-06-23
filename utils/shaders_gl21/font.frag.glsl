@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #version 120
 
 uniform vec3 clr;  // font color
@@ -9,8 +7,12 @@ uniform sampler2D tex;
 varying vec2 tex_coord;
 
 void main() {
+
     vec3 c = texture2D(tex, tex_coord).rgb;
-    float a=length(c)/1.7320508075688772;
-    gl_FragDepth=1.0-a;
-    gl_FragColor=vec4(mix(bclr.rgb, clr, c),bclr.a+a*(1.0-bclr.a));
+
+    gl_FragDepth = 1.0 - length(c) / length(vec3(1, 1, 1));
+    gl_FragColor = vec4(mix(bclr.r, clr.r, c.r),
+                        mix(bclr.g, clr.g, c.g),
+                        mix(bclr.b, clr.b, c.b),
+                        bclr.a + (c.r + c.g + c.b)/3.0);
 }

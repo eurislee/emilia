@@ -1,14 +1,3 @@
-/*
- * Copyright (C) Fredrik Fornwall 2016.
- * Distributed under the MIT License.
- *
- * Implementation of wcwidth(3) as a C port of:
- * https://github.com/jquast/wcwidth
- *
- * Report issues at:
- * https://github.com/termux/wcwidth
- */
-
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -17,8 +6,6 @@ struct width_interval {
         int end;
 };
 
-// From https://github.com/jquast/wcwidth/blob/master/wcwidth/table_zero.py
-// at commit 0d7de112202cc8b2ebe9232ff4a5c954f19d561a (2016-07-02):
 static struct width_interval ZERO_WIDTH[] = {
         {0x0300, 0x036f},  // Combining Grave Accent  ..Combining Latin Small Le
         {0x0483, 0x0489},  // Combining Cyrillic Titlo..Combining Cyrillic Milli
@@ -305,8 +292,6 @@ static struct width_interval ZERO_WIDTH[] = {
         {0xe0100, 0xe01ef},  // Variation Select||-17   ..Variation Select||-256
 };
 
-// https://github.com/jquast/wcwidth/blob/master/wcwidth/table_wide.py
-// at commit 0d7de112202cc8b2ebe9232ff4a5c954f19d561a (2016-07-02):
 static struct width_interval WIDE_EASTASIAN[] = {
         {0x1100, 0x115f},  // Hangul Choseong Kiyeok  ..Hangul Choseong Filler
         {0x231a, 0x231b},  // Watch                   ..Hourglass

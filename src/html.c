@@ -6,7 +6,7 @@
 
 #include "../include/stb_image.h"
 #include "../include/stb_image_write.h"
-#include "../include/wc_width.h"
+#include "../include/wcwidth.h"
 
 #include "../include/base64.h"
 #include "../include/colors.h"

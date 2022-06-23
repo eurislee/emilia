@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 /**
  * Gfx - renderer interface
  */

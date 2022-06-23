@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 #pragma once
 
 #define _GNU_SOURCE

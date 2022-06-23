@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 /**
  * struct WindowBase - window interface/base class
  */
@@ -10,20 +8,6 @@
 #include "timing.h"
 #include "util.h"
 #include <stdalign.h>
-
-typedef enum
-{
-    GFX_API_GLES,
-    GFX_API_GL,
-    GFX_API_VK,
-} gfx_api_type_e;
-
-typedef struct
-{
-    gfx_api_type_e type;
-    uint8_t        version_major;
-    uint8_t        version_minor;
-} gfx_api_t;
 
 #define WINDOW_IS_CLOSED         (1 << 0)
 #define WINDOW_IS_FULLSCREEN     (1 << 1)
@@ -110,7 +94,7 @@ typedef struct WindowBase
 
     lcd_filter_e lcd_filter;
     uint32_t     dpi;
-    int8_t       output_index;
+    uint8_t      output_index;
     char*        output_name;
 
     struct window_callbacks_t
@@ -130,11 +114,11 @@ typedef struct WindowBase
         window_partial_swap_request_t* (*on_redraw_requested)(void* user_data, uint8_t buffer_age);
         void (*on_focus_changed)(void* user_data, bool current_state);
         void (*on_primary_changed)(void* user_data);
-        void (*on_output_changed)(void*         user_data,
-                                  const int32_t display_index,
-                                  const char*   display_name,
-                                  lcd_filter_e  new_order,
-                                  uint16_t      dpi);
+        void (*on_output_changed)(void*          user_data,
+                                  const uint32_t display_index,
+                                  const char*    display_name,
+                                  lcd_filter_e   new_order,
+                                  uint16_t       dpi);
         void (*on_framebuffer_damaged)(void* user_data);
     } callbacks;
 
@@ -208,7 +192,7 @@ static inline void Window_destroy(struct WindowBase* self)
 {
     free(self->output_name);
     self->output_name = NULL;
-
+    
     self->interface->destroy(self);
 }
 

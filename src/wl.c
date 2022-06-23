@@ -1,11 +1,8 @@
-/* See LICENSE for license information. */
-
 #ifndef NOWL
 
 #define _GNU_SOURCE
 
 #include "../include/wl.h"
-#include "../include/map.h"
 #include "../include/timing.h"
 #include "../include/util.h"
 #include "../include/vector.h"
@@ -32,7 +29,7 @@
 #include "../include/xdg_decoration.h"
 #include "../include/xdg_shell.h"
 
-#include "../include/egl_errors.h"
+#include "../include/eglerrors.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GL/gl.h>
@@ -41,8 +38,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 
-#define WL_DEFAULT_CURSOR_SIZE        16
-#define WL_FALLBACK_TGT_FRAME_TIME_MS 16
+#define WL_DEFAULT_CURSOR_SIZE 16
 
 static WindowStatic* global;
 
@@ -91,7 +87,7 @@ PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC eglSwapBuffersWithDamageKHR;
 static struct wl_data_source_listener data_source_listener;
 static void                           cursor_set(struct wl_cursor* what, uint32_t serial);
 static void                           WindowWl_dont_swap_buffers(struct WindowBase* self);
-struct WindowBase*                    WindowWl_new(uint32_t w, uint32_t h, gfx_api_t gfx_api_t);
+struct WindowBase*                    WindowWl_new(uint32_t w, uint32_t h);
 static void       WindowWl_set_maximized(struct WindowBase* self, bool maximized);
 static void       WindowWl_set_fullscreen(struct WindowBase* self, bool fullscreen);
 static void       WindowWl_resize(struct WindowBase* self, uint32_t w, uint32_t h);
@@ -217,17 +213,11 @@ typedef struct
     /* dots per inch calculated from physical dimensions and resolution */
     uint16_t dpi;
 
-    /* for calculating dpi. we need to store this because any of those values may be updated (and
-     * they come from different events) */
-    int32_t width_px;
-    double  width_inch;
-
     /* output index, we can use this to distinguish displays with the same name */
     uint8_t global_index;
 
     /* output name */
     char* name;
-
 } WlOutputInfo;
 
 static void WlOutputInfo_destroy(WlOutputInfo* self)
@@ -236,20 +226,7 @@ static void WlOutputInfo_destroy(WlOutputInfo* self)
     self->name = NULL;
 }
 
-DEF_VECTOR(WlOutputInfo, WlOutputInfo_destroy);
-
-typedef size_t wl_output_ptr;
-
-static size_t wl_output_ptr_hash(const wl_output_ptr* k)
-{
-    return ((size_t)*k) / 16;
-}
-static bool wl_output_ptr_eq(const wl_output_ptr* k, const wl_output_ptr* o)
-{
-    return *k == *o;
-}
-
-DEF_MAP(wl_output_ptr, WlOutputInfo, wl_output_ptr_hash, wl_output_ptr_eq, WlOutputInfo_destroy);
+DEF_VECTOR(WlOutputInfo, NULL);
 
 typedef struct
 {
@@ -279,12 +256,9 @@ typedef struct
 
     bool got_discrete_axis_event;
 
-    // Vector_WlOutputInfo outputs;
-
-    Map_wl_output_ptr_WlOutputInfo outputs;
-
-    WlOutputInfo* active_output;
-    bool          draw_next_frame;
+    Vector_WlOutputInfo outputs;
+    WlOutputInfo*       active_output;
+    bool                draw_next_frame;
 
 } WindowWl;
 
@@ -638,78 +612,41 @@ static void wl_surface_handle_enter(void*              data,
     WindowBase* win_base = data;
     WindowWl*   win      = windowWl(win_base);
 
-    WlOutputInfo* info =
-      Map_get_wl_output_ptr_WlOutputInfo(&win->outputs, (wl_output_ptr*)(&output));
-
-    uint32_t num_active_outputs = 0;
-    for (MapEntryIterator_wl_output_ptr_WlOutputInfo i =
-           (MapEntryIterator_wl_output_ptr_WlOutputInfo){ 0, 0 };
-         (i = Map_iter_wl_output_ptr_WlOutputInfo(&win->outputs, i)).entry;) {
-        if (i.entry->value.is_active) {
-            ++num_active_outputs;
+    for (WlOutputInfo* i = NULL; (i = Vector_iter_WlOutputInfo(&win->outputs, i));) {
+        if (output == i->output) {
+            i->is_active                 = true;
+            global->target_frame_time_ms = i->target_frame_time_ms;
+            win->active_output           = i;
+            break;
         }
-    }
-
-    if (info) {
-        info->is_active = true;
     }
 
     FLAG_UNSET(win_base->state_flags, WINDOW_IS_MINIMIZED);
-
-    if (!num_active_outputs) {
-        win->active_output     = info;
-        win_base->lcd_filter   = win->active_output->lcd_filter;
-        win_base->output_index = win->active_output->global_index;
-        free(win_base->output_name);
-        if (win->active_output->name) {
-            win_base->output_name = strdup(win->active_output->name);
-        } else {
-            win_base->output_name = NULL;
-        }
-        win_base->dpi = win->active_output->dpi;
-        Window_emit_output_change_event(win_base);
-    }
 }
 
 static void wl_surface_handle_leave(void* data, struct wl_surface* _, struct wl_output* output)
 {
     struct WindowBase* win_base = data;
     WindowWl*          win      = windowWl(win_base);
-    win->active_output          = NULL;
 
-    for (MapEntryIterator_wl_output_ptr_WlOutputInfo i = { 0, 0 };
-         (i = Map_iter_wl_output_ptr_WlOutputInfo(&win->outputs, i)).entry;) {
-        WlOutputInfo* info = &i.entry->value;
-
-        if (output == info->output) {
-            info->is_active = false;
-        } else if (info->is_active) {
-            win->active_output = info;
+    win->active_output = NULL;
+    for (WlOutputInfo* i = NULL; (i = Vector_iter_WlOutputInfo(&win->outputs, i));) {
+        if (output == i->output) {
+            i->is_active = false;
+        } else if (i->is_active) {
+            win->active_output = i;
         }
     }
 
-    uint32_t num_active_outputs = 0;
-    for (MapEntryIterator_wl_output_ptr_WlOutputInfo i =
-           (MapEntryIterator_wl_output_ptr_WlOutputInfo){ 0, 0 };
-         (i = Map_iter_wl_output_ptr_WlOutputInfo(&win->outputs, i)).entry;) {
-        if (i.entry->value.is_active) {
-            ++num_active_outputs;
-        }
-    }
-
-    if (num_active_outputs == 1) {
+    if (!win->active_output) {
+        FLAG_SET(win_base->state_flags, WINDOW_IS_MINIMIZED);
+    } else {
         win_base->lcd_filter   = win->active_output->lcd_filter;
         win_base->output_index = win->active_output->global_index;
         free(win_base->output_name);
-        if (win->active_output->name) {
-            win_base->output_name = strdup(win->active_output->name);
-        } else {
-            win_base->output_name = NULL;
-        }
-        win_base->dpi = win->active_output->dpi;
+        win_base->output_name = strdup(win->active_output->name);
+        win_base->dpi         = win->active_output->dpi;
         Window_emit_output_change_event(win_base);
-    } else if (num_active_outputs == 0) {
-        FLAG_SET(win_base->state_flags, WINDOW_IS_MINIMIZED);
     }
 }
 
@@ -1255,29 +1192,10 @@ static lcd_filter_e wl_subpixel_to_lcd_filter(int32_t subpixel)
     return filter[subpixel];
 }
 
-/* Information about an output is sent (initially or updated) by wl_output.geometry and/or
- * wl_output.mode events that can come in any order. The wl_output.done event is used to indicate
- * that the compositor has sent all info about a specific output. Record data from last received
- * 'mode' and 'output' events so we can apply them on 'done'. If the output parameter of 'done'
- * matches any of the existing wl_output-s we have, interpret it as an update to that output
- * atherwise add it. */
-typedef struct
-{
-    bool         geometry_event_received;
-    bool         mode_event_received;
-    lcd_filter_e geometry_filter;
-    char*        dpy_name;
-    double       physical_width_inch;
-    int8_t       global_output_index;
-    int32_t      frame_time_ms;
-    int32_t      pixel_width;
-} output_params_t;
-
-static output_params_t last_recorded_output_params = (output_params_t){
-    .geometry_event_received = false,
-    .mode_event_received     = false,
-    .global_output_index     = 0,
-};
+static lcd_filter_e last_recorded_geometry_filter;
+static char*        last_recorded_dpy_name;
+static double       last_recorded_physical_width_inch;
+static uint8_t      last_global_output_index = 0;
 
 /* Output listener */
 static void output_handle_geometry(void*             data,
@@ -1291,18 +1209,14 @@ static void output_handle_geometry(void*             data,
                                    const char*       model,
                                    int32_t           transform)
 {
-    last_recorded_output_params.geometry_event_received = true;
-    last_recorded_output_params.geometry_filter         = wl_subpixel_to_lcd_filter(subpixel);
-    last_recorded_output_params.physical_width_inch     = (double)physical_width * INCH_IN_MM;
+    last_recorded_geometry_filter     = wl_subpixel_to_lcd_filter(subpixel);
+    last_recorded_physical_width_inch = (double)physical_width * INCH_IN_MM;
 
-    free(last_recorded_output_params.dpy_name);
-    last_recorded_output_params.dpy_name = NULL;
-    if (model) {
-        last_recorded_output_params.dpy_name = strdup(model);
-    }
+    free(last_recorded_dpy_name);
+    last_recorded_dpy_name = strdup(model);
 
     if (settings.lcd_filter == LCD_FILTER_UNDEFINED) {
-        settings.lcd_filter = last_recorded_output_params.geometry_filter;
+        settings.lcd_filter = last_recorded_geometry_filter;
     }
 }
 
@@ -1314,102 +1228,31 @@ static void output_handle_mode(void*             data,
                                int32_t           refresh)
 {
     if (flags & WL_OUTPUT_MODE_CURRENT) {
-        last_recorded_output_params.mode_event_received = true;
-        last_recorded_output_params.pixel_width         = w;
+        WindowWl* win           = windowWl(((struct WindowBase*)data));
+        int32_t   frame_time_ms = 1000000 / refresh;
+        bool      make_active   = !win->outputs.size;
 
-        /* Refresh rate can be set to zero if it doesn't make sense e.g. for virtual outputs. */
-        last_recorded_output_params.frame_time_ms =
-          refresh ? 1000000 / refresh : WL_FALLBACK_TGT_FRAME_TIME_MS;
+        Vector_push_WlOutputInfo(&win->outputs,
+                                 (WlOutputInfo){
+                                   .output               = wl_output,
+                                   .is_active            = make_active,
+                                   .target_frame_time_ms = frame_time_ms,
+                                   .lcd_filter           = last_recorded_geometry_filter,
+                                   .name                 = last_recorded_dpy_name,
+                                   .dpi          = (double)w / last_recorded_physical_width_inch,
+                                   .global_index = ++last_global_output_index,
+                                 });
+
+        last_recorded_dpy_name = NULL;
+        if (make_active) {
+            win->active_output = Vector_last_WlOutputInfo(&win->outputs);
+        }
     }
 }
 
-static void output_handle_done(void* data, struct wl_output* wl_output)
-{
-    WindowBase* win_base = data;
-    WindowWl*   win      = windowWl(win_base);
+static void output_handle_done(void* data, struct wl_output* wl_output) {}
 
-    bool is_update = false;
-    bool is_delete = !last_recorded_output_params.mode_event_received &&
-                     !last_recorded_output_params.geometry_event_received;
-
-    if (is_delete) {
-        if (win->active_output->output == wl_output) {
-            win->active_output = NULL;
-        }
-        uint8_t deleted_idx =
-          Map_get_wl_output_ptr_WlOutputInfo(&win->outputs, (wl_output_ptr*)&wl_output)
-            ->global_index;
-
-        Map_remove_wl_output_ptr_WlOutputInfo(&win->outputs, (wl_output_ptr*)&wl_output);
-
-        for (MapEntryIterator_wl_output_ptr_WlOutputInfo i = { 0, 0 };
-             (i = Map_iter_wl_output_ptr_WlOutputInfo(&win->outputs, i)).entry;) {
-            WlOutputInfo* info = &i.entry->value;
-
-            if (info->global_index > deleted_idx) {
-                --info->global_index;
-            }
-        }
-        --last_recorded_output_params.global_output_index;
-    } else {
-        for (MapEntryIterator_wl_output_ptr_WlOutputInfo i = { 0, 0 };
-             (i = Map_iter_wl_output_ptr_WlOutputInfo(&win->outputs, i)).entry;) {
-            WlOutputInfo* info = &i.entry->value;
-
-            if (info->output == wl_output) {
-                is_update = true;
-
-                if (last_recorded_output_params.geometry_event_received) {
-                    free(info->name);
-                    info->name       = last_recorded_output_params.dpy_name;
-                    info->lcd_filter = last_recorded_output_params.geometry_filter;
-                    info->width_inch = last_recorded_output_params.physical_width_inch;
-                }
-
-                if (last_recorded_output_params.mode_event_received) {
-                    info->target_frame_time_ms = last_recorded_output_params.frame_time_ms;
-                    info->width_px             = last_recorded_output_params.pixel_width;
-                }
-
-                info->dpi = (double)info->width_px / info->width_inch;
-            }
-            break;
-        }
-    }
-
-    if (!is_update && last_recorded_output_params.mode_event_received &&
-        last_recorded_output_params.geometry_event_received) {
-        WlOutputInfo info = {
-            .output               = wl_output,
-            .is_active            = false,
-            .target_frame_time_ms = last_recorded_output_params.frame_time_ms,
-            .lcd_filter           = last_recorded_output_params.geometry_filter,
-            .name                 = last_recorded_output_params.dpy_name,
-            .dpi                  = (double)last_recorded_output_params.pixel_width /
-                   last_recorded_output_params.physical_width_inch,
-            .width_px     = last_recorded_output_params.pixel_width,
-            .width_inch   = last_recorded_output_params.physical_width_inch,
-            .global_index = ++last_recorded_output_params.global_output_index,
-        };
-
-        win->active_output =
-          Map_insert_wl_output_ptr_WlOutputInfo(&win->outputs, (wl_output_ptr)wl_output, info);
-    }
-
-    last_recorded_output_params.dpy_name                = NULL;
-    last_recorded_output_params.geometry_event_received = false;
-    last_recorded_output_params.mode_event_received     = false;
-
-    if (is_update && (last_recorded_output_params.mode_event_received ||
-                      last_recorded_output_params.geometry_event_received)) {
-        Window_emit_output_change_event((WindowBase*)win);
-    }
-}
-
-static void output_handle_scale(void* data, struct wl_output* wl_output, int32_t factor)
-{
-    // TODO: scale everything ourselves and use wl_surface.set_buffer_scale.
-}
+static void output_handle_scale(void* data, struct wl_output* wl_output, int32_t factor) {}
 
 static const struct wl_output_listener output_listener = {
     .geometry = output_handle_geometry,
@@ -1701,66 +1544,42 @@ static void registry_add(void*               data,
                          const char*         interface,
                          uint32_t            version)
 {
-    bool unused = false;
-
-#ifdef DEBUG
-    uint32_t ver_req = 1;
-#define L_RQDBG(v) ver_req = v;
-#else
-#define L_RQDBG(_) ;
-#endif
-
-#define L_REQUIRE_VER(v)                                                                           \
-    L_RQDBG(v);                                                                                    \
-    if ((v) > version) {                                                                           \
-        ERR("Wayland interface \'%s\' version to low. Required " #v ", provided %u.",              \
-            interface,                                                                             \
-            version);                                                                              \
-    }
+    LOG("wl::registry_add{ name: %-40s, ver: %2u", interface, version);
 
     if (!strcmp(interface, wl_compositor_interface.name)) {
-        L_REQUIRE_VER(4);
-        globalWl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
+        globalWl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, version);
     } else if (!strcmp(interface, wl_shell_interface.name)) {
-        globalWl->wl_shell = wl_registry_bind(registry, name, &wl_shell_interface, 1);
+        globalWl->wl_shell = wl_registry_bind(registry, name, &wl_shell_interface, version);
     } else if (!strcmp(interface, xdg_wm_base_interface.name)) {
-        globalWl->xdg_shell = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+        globalWl->xdg_shell = wl_registry_bind(registry, name, &xdg_wm_base_interface, version);
         xdg_wm_base_add_listener(globalWl->xdg_shell, &wm_base_listener, data);
     } else if (!strcmp(interface, wl_seat_interface.name)) {
-        L_REQUIRE_VER(5);
-        globalWl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 5);
+        globalWl->seat = wl_registry_bind(registry, name, &wl_seat_interface, version);
         wl_seat_add_listener(globalWl->seat, &seat_listener, data);
     } else if (!strcmp(interface, wl_output_interface.name)) {
-        L_REQUIRE_VER(2);
-        globalWl->output = wl_registry_bind(registry, name, &wl_output_interface, 2);
+        globalWl->output = wl_registry_bind(registry, name, &wl_output_interface, version);
         wl_output_add_listener(globalWl->output, &output_listener, data);
     } else if (!strcmp(interface, zxdg_decoration_manager_v1_interface.name)) {
         globalWl->decoration_manager =
-          wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
+          wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, version);
     } else if (!strcmp(interface, wl_shm_interface.name)) {
-        globalWl->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+        globalWl->shm = wl_registry_bind(registry, name, &wl_shm_interface, version);
     } else if (!strcmp(interface, wl_data_device_manager_interface.name)) {
-        L_REQUIRE_VER(3);
         globalWl->data_device_manager =
-          wl_registry_bind(registry, name, &wl_data_device_manager_interface, 3);
+          wl_registry_bind(registry, name, &wl_data_device_manager_interface, version);
     } else if (!strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name)) {
         globalWl->primary_manager =
-          wl_registry_bind(registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
+          wl_registry_bind(registry,
+                           name,
+                           &zwp_primary_selection_device_manager_v1_interface,
+                           version);
     } else if (!strcmp(interface, org_kde_kwin_blur_manager_interface.name)) {
         globalWl->kde_kwin_blur_manager =
-          wl_registry_bind(registry, name, &org_kde_kwin_blur_manager_interface, 1);
+          wl_registry_bind(registry, name, &org_kde_kwin_blur_manager_interface, version);
     } else {
-        unused = true;
+        LOG(" (unused)");
     }
-
-    if (unused) {
-        LOG("wl::registry{ name: %-45s ver: %2u unused }\n", interface, version);
-    } else {
-        LOG("wl::registry{ name: %-45s ver: %2u binding to version %u }\n",
-            interface,
-            version,
-            ver_req);
-    }
+    LOG(" }\n");
 }
 
 static void registry_remove(void* data, struct wl_registry* registry, uint32_t name) {}
@@ -1806,11 +1625,6 @@ static void setup_cursor(struct WindowBase* self)
 static void cursor_set(struct wl_cursor* what, uint32_t serial)
 {
     globalWl->serial = serial;
-
-    if (!globalWl->pointer) {
-        return;
-    }
-    
     struct wl_buffer*       b;
     struct wl_cursor_image* img = OR(what, globalWl->cursor_arrow)->images[0];
 
@@ -1829,7 +1643,7 @@ static void cursor_set(struct wl_cursor* what, uint32_t serial)
 }
 
 /* Window */
-struct WindowBase* WindowWl_new(uint32_t w, uint32_t h, gfx_api_t gfx_api)
+struct WindowBase* WindowWl_new(uint32_t w, uint32_t h)
 {
     global = calloc(1, sizeof(WindowStatic) + sizeof(GlobalWl) - sizeof(uint8_t));
     global->target_frame_time_ms = 16;
@@ -1850,7 +1664,7 @@ struct WindowBase* WindowWl_new(uint32_t w, uint32_t h, gfx_api_t gfx_api)
 
     win->w                 = w;
     win->h                 = h;
-    windowWl(win)->outputs = Map_new_wl_output_ptr_WlOutputInfo(4);
+    windowWl(win)->outputs = Vector_new_WlOutputInfo();
     FLAG_SET(win->state_flags, WINDOW_IS_IN_FOCUS);
     FLAG_SET(win->state_flags, WINDOW_IS_MINIMIZED);
 
@@ -1907,32 +1721,14 @@ struct WindowBase* WindowWl_new(uint32_t w, uint32_t h, gfx_api_t gfx_api)
 
     LOG("EGL Initialized %d.%d\n", major, minor);
 
-    switch (gfx_api.type) {
-        case GFX_API_GL:
-            if (eglBindAPI(EGL_OPENGL_API) != EGL_TRUE) {
-                ERR("EGL API binding error %s", egl_get_error_string(eglGetError()));
-            }
-            break;
-
-        case GFX_API_GLES:
-            if (eglBindAPI(EGL_OPENGL_ES_API) != EGL_TRUE) {
-                ERR("EGL API binding error %s", egl_get_error_string(eglGetError()));
-            }
-            break;
-
-        case GFX_API_VK:
-            ERR("vulkan context not implemented for wayland\n");
-            break;
+    if (eglBindAPI(EGL_OPENGL_API) != EGL_TRUE) {
+        ERR("EGL API binding error %s", egl_get_error_string(eglGetError()));
     }
 
     eglChooseConfig(globalWl->egl_display, cfg_attribs, &config, 1, &num_config);
 
     EGLint context_attribs[] = {
-        EGL_CONTEXT_MAJOR_VERSION,
-        gfx_api.version_major,
-        EGL_CONTEXT_MINOR_VERSION,
-        gfx_api.version_minor,
-        EGL_NONE, /* terminate list */
+        EGL_CONTEXT_MAJOR_VERSION, 2, EGL_CONTEXT_MINOR_VERSION, 1, EGL_NONE,
     };
 
     windowWl(win)->egl_context =
@@ -2036,9 +1832,9 @@ struct WindowBase* WindowWl_new(uint32_t w, uint32_t h, gfx_api_t gfx_api)
     return win;
 }
 
-struct WindowBase* Window_new_wayland(Pair_uint32_t res, Pair_uint32_t cell_dims, gfx_api_t gfx_api)
+struct WindowBase* Window_new_wayland(Pair_uint32_t res, Pair_uint32_t cell_dims)
 {
-    struct WindowBase* win = WindowWl_new(res.first, res.second, gfx_api);
+    struct WindowBase* win = WindowWl_new(res.first, res.second);
 
     if (!win) {
         return NULL;
@@ -2142,11 +1938,14 @@ void WindowWl_events(struct WindowBase* self)
 {
     static bool initial_event_emited = false;
 
-    if (unlikely(!initial_event_emited && self->callbacks.on_output_changed &&
-                 windowWl(self)->active_output &&
-                 Map_count_wl_output_ptr_WlOutputInfo(&windowWl(self)->outputs) == 1)) {
+    if (unlikely(!initial_event_emited && self->callbacks.on_output_changed)) {
         initial_event_emited = true;
-        Window_emit_output_change_event(self);
+        CALL(self->callbacks.on_output_changed,
+             self->callbacks.user_data,
+             windowWl(self)->active_output->global_index,
+             windowWl(self)->active_output->name,
+             windowWl(self)->active_output->lcd_filter,
+             windowWl(self)->active_output->dpi);
     }
 
     /* Wayland docs:
@@ -2343,7 +2142,7 @@ static void WindowWl_destroy(struct WindowBase* self)
     free((void*)windowWl(self)->data_source_text);
     free((void*)windowWl(self)->primary_source_text);
 
-    Map_destroy_wl_output_ptr_WlOutputInfo(&windowWl(self)->outputs);
+    Vector_destroy_WlOutputInfo(&windowWl(self)->outputs);
 
     free(self);
 }

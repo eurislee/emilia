@@ -1,5 +1,3 @@
-/* See LICENSE for license information. */
-
 /**
  * Utility functions for dealing with colors
  *

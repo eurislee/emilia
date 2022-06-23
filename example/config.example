@@ -10,7 +10,7 @@ font = [
     # box drawing block. Those characters will be loaded (if present) from
     # the following fonts in this list.
     "mononoki:..u+24ff:u+2580..",
-    "sauce code pro nerd font",
+    "Source Code Pro",
     # Mixing ttf/otf with bitmap fonts is ok
     # You can set an offset to keep fonts smaller/larger than the global size.
     "Terminus:-3"
@@ -29,8 +29,8 @@ font-symbol = [
 font-color = "Noto Color Emoji"
 
 # use Semibold as the Bold style
-style-bold = "Semibold"
-font-size = 10
+style-bold = "Regular"
+font-size = 9
 dpi = 96
 
 # Load one of the default colorschemes
@@ -69,5 +69,5 @@ scrollback = 1000
 bind-key-debug=Ctrl+Shift+Return
 bind-key-enlarge=Ctrl+Shift+equal
 bind-key-shrink=Ctrl+Shift+minus
-bind-key-copy=Ctrl+Shift+y
-bind-key-paste=Ctrl+Shift+p
+bind-key-copy=Ctrl+Shift+c
+bind-key-paste=Ctrl+Shift+v

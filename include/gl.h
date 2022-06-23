@@ -1,10 +1,8 @@
-/* See LICENSE for license information. */
-
 #pragma once
 
 #define _GNU_SOURCE
 
-#include "gl_ext.h"
+#include "glext.h"
 #include <GL/gl.h>
 #include <assert.h>
 #include <stdarg.h>

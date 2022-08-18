@@ -3,12 +3,12 @@
 compile_commands.json
 tests
 build/*
-meris
+watermelon
 TAGS
 TAGS*
 src/TAGS
 src/TAGS*
-meris.desktop
+watermelon.desktop
 .cache
 .cache/*
 src/.cache

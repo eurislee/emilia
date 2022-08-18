@@ -9,11 +9,11 @@
 #endif
 
 #ifndef EXECUTABLE_FILE_NAME
-#define EXECUTABLE_FILE_NAME "meris"
+#define EXECUTABLE_FILE_NAME "watermelon"
 #endif
 
 #ifndef APPLICATION_NAME
-#define APPLICATION_NAME "Meris"
+#define APPLICATION_NAME "Watermelon"
 #endif
 
 // default lcd filter

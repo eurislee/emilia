@@ -708,10 +708,10 @@ static WindowBase* WindowX11_new(uint32_t w, uint32_t h, uint32_t cellx, uint32_
     /*                 XInternAtom(globalX11->display, "UTF8_STRING", False), */
     /*                 8, */
     /*                 PropModeReplace, */
-    /*                 (unsigned char*)"meris", */
-    /*                 strlen("meris")); */
+    /*                 (unsigned char*)"watermelon", */
+    /*                 strlen("watermelon")); */
 
-    /* XSetIconName(globalX11->display, windowX11(win)->window, "meris"); */
+    /* XSetIconName(globalX11->display, windowX11(win)->window, "watermelon"); */
 
     XClassHint class_hint = { APPLICATION_NAME, "CLASS" };
     XWMHints   wm_hints   = { .flags = InputHint, .input = True };
@@ -889,7 +889,7 @@ WindowBase* Window_new_x11(Pair_uint32_t res, Pair_uint32_t cell_dims)
                           OR(settings.user_app_id_2, NULL));
     WindowX11_set_title(win, settings.title.str);
 
-    // TODO: WM_COMMAND(STRING) = { "meris", "--foo", "bar" }
+    // TODO: WM_COMMAND(STRING) = { "watermelon", "--foo", "bar" }
 
     return win;
 }

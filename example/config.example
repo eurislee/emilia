@@ -34,7 +34,7 @@ font-size = 9
 dpi = 96
 
 # Load one of the default colorschemes
-colorscheme = "meris"
+colorscheme = "watermelon"
 # Overwrite parts of the colorscheme
 fg-color = "#3c3836"
 bg-color = "#fbf1c7"

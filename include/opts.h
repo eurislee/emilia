@@ -383,7 +383,7 @@ static const char* long_options_descriptions[][2] = {
 
     [OPT_VISUAL_BELL]     = { "#RRGGBBAA/name", "Visual bell effect - overlay color/none" },
     [OPT_COLORSCHEME_IDX] = { "name/int",
-                              "Colorscheme name/index: meris, linux, xterm, rxvt, yaru, tango, "
+                              "Colorscheme name/index: watermelon, linux, xterm, rxvt, yaru, tango, "
                               "orchis, "
                               "solarized" },
 

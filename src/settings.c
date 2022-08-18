@@ -19,11 +19,11 @@
 #include "../include/vector.h"
 
 #ifndef CONFIG_SUBDIRECTORY_NAME
-#define CONFIG_SUBDIRECTORY_NAME "meris"
+#define CONFIG_SUBDIRECTORY_NAME "watermelon"
 #endif
 
 #ifndef CACHE_SUBDIRECTORY_NAME
-#define CACHE_SUBDIRECTORY_NAME "meris"
+#define CACHE_SUBDIRECTORY_NAME "watermelon"
 #endif
 
 #ifndef CONFIG_FILE_NAME
@@ -50,7 +50,7 @@
 
 static const char* const colors_default[9][18] = {
     {
-      /* meris */
+      /* watermelon */
       "fbf1c7",
       "cc241d",
       "98971a",
@@ -1566,7 +1566,7 @@ static void handle_option(const char opt, const int array_index, const char* val
         } break;
 
         case OPT_COLORSCHEME_IDX:
-            if (!strcasecmp(value, "meris")) {
+            if (!strcasecmp(value, "watermelon")) {
                 settings.colorscheme_preset = 0;
             } else if (!strcasecmp(value, "linux")) {
                 settings.colorscheme_preset = 1;

@@ -1,5 +1,5 @@
 CC        ?= cc
-NAME      ?= meris
+NAME      ?= watermelon
 PREFIX    ?= /usr/local
 BINPREFIX ?= $(PREFIX)/bin
 
